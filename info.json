@@ -1,0 +1,11 @@
+{
+  "name": "logistic-request-helper",
+  "version": "0.1.0",
+  "title": "Logistic request helper",
+  "author": "Subject31415",
+  "factorio_version": "1.1",
+  "dependencies": [
+    "base >= 1.1"
+  ],
+  "description": "Adds a crafting tab-like GUI to quickly add/remove logistic requests by clicking, shift-clicking or right-clicking."
+}
