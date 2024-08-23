@@ -21,6 +21,6 @@ Known issues:
 
 Roadmap:
 
-    - Add option to set min/max request separately
-    - Add min/max request amount numbers in the GUI
-    - Auto update GUI when updating the logistic requests from the character window
+-   Add option to set min/max request separately
+-   Add min/max request amount numbers in the GUI
+-   Auto update GUI when updating the logistic requests from the character window
