@@ -13,5 +13,6 @@ data:extend({{
         filename = "__base__/graphics/icons/logistic-robot.png",
         size = 64,
         mipmap_count = 2
-    }
+    },
+    toggleable = true
 }})

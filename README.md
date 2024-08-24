@@ -16,18 +16,10 @@ Features:
 
 Known issues:
 
--   Only one specific request amount can be displayed/set
--   Request amount can't be set to 'infinite'
--   Updating the logistic request from the character window doesn't update the GUI while the GUI is open
-    -   Containment: Close and open
--   Changing the mod settings while the GUI is open might not display it in the correct location
-    -   Containment: Close both the GUI and character crafting screen
--   Changing the anchor position might not work
-    -   Containment: Untoggle the "anchor" setting, open/close the GUI, toggle the "anchor" setting
+-   Only one specific request amount can be set
 
 Roadmap:
 
 -   Add option to set min/max request separately
--   Add min/max request amount numbers in the GUI
--   Auto update GUI when updating the logistic requests from the character window
--   Improve GUI location handling and shortcut button toggling
+-   Add checkbox "enable personal logistic" as per main character window
+-   Add expand/collapse button per group

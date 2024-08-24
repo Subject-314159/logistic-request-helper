@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.3
+Date: 2024-08-25
+  Bugfixes:
+    - Force close GUI on version change to prevent errors with previous GUI lay-outs
+---------------------------------------------------------------------------------------------------
+Version: 0.1.2
+Date: 2024-08-25
+  Changes:
+    - Moved mod settings from global to per-player
+    - Added mod settings for GUI width/height
+    - Correctly displaying min/max request amounts
+  Bugfixes:
+    - Correctly showing the toggle state of the shortcut button
+    - More robust toggle handling
+    - Force close GUI on mod setting change to prevent GUIs not being updated
+---------------------------------------------------------------------------------------------------
 Version: 0.1.1
 Date: 2024-08-24
   Features:
