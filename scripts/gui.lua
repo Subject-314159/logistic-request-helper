@@ -32,7 +32,7 @@ end
 
 local gui = {}
 
-gui.build = function(player_index)
+gui.build = function(player_index, triggered_by_script)
 
     -- Get player
     local player = game.get_player(player_index)
@@ -47,18 +47,61 @@ gui.build = function(player_index)
         return
     end
 
-    -- Open the main frame
-    player.set_shortcut_toggled("lrh_shortcut", false)
-    local gui = player.gui.left.add({
+    -- Check if we need to attach to character gui or not
+    local gui
+    local gui_prop = {
         type = "frame",
         name = "lrh_gui",
         direction = "vertical",
         caption = "Logistic request helper"
-    })
-    gui.style.maximal_height = 600
-    gui.style.horizontally_squashable = false
-    gui.style.horizontally_stretchable = true
-    -- gui.auto_center = true
+    }
+    if settings.global["lrh_attach-to-inventory"].value then
+        if player.opened_gui_type == defines.gui_type.controller and triggered_by_script then
+            -- The controller GUI was open when triggering the event, so we need to close the controller gui
+            player.opened = nil
+            return
+        else
+            -- Check if the GUI is already present to the relative
+            if player.gui.relative.lrh_gui then
+                -- No need to do anything, we can just open the controller gui and return
+                player.opened = defines.gui_type.controller
+                return
+            else
+
+                -- Attach the gui to the character gui
+                local anchor = {
+                    gui = defines.relative_gui_type.controller_gui,
+                    position = defines.relative_gui_position[settings.global["lrh_attach-side"].value]
+                }
+                gui_prop.anchor = anchor
+                gui = player.gui.relative.add(gui_prop)
+                gui.style.height = 600
+                gui.style.vertically_squashable = false
+                gui.style.vertically_stretchable = true
+
+                -- Open the controller GUI (after we attached it, because it will trigger this function again)
+                player.opened = defines.gui_type.controller
+            end
+        end
+    else
+        -- Check if the GUI was attached to the controller
+        if player.gui.relative.lrh_gui then
+            player.gui.relative.lrh_gui.destroy()
+        end
+
+        if not triggered_by_script then
+            -- We might get here if the player opened the inventory but GUI is not attached to the inventory
+            return
+        end
+
+        -- Open the main frame to the side
+        gui = player.gui.left.add(gui_prop)
+        gui.style.maximal_height = 600
+        gui.style.horizontally_squashable = false
+        gui.style.horizontally_stretchable = true
+
+        player.set_shortcut_toggled("lrh_shortcut", false)
+    end
 
     -- Check if the player has logistic request enabled
     if not player.force.character_logistic_requests then
@@ -239,6 +282,9 @@ gui.on_button_clicked = function(player, button, shift, control, alt, right)
 end
 
 gui.toggle = function(player)
+end
+
+gui.init = function()
 end
 
 return gui

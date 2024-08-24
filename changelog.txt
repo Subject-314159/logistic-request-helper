@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.1
+Date: 2024-08-24
+  Features:
+    - Added shortcuts ALT+L and SHIFT+E
+    - Added mod setting to attach GUI to the character crafting screen instead
+---------------------------------------------------------------------------------------------------
 Version: 0.1.0
 Date: 2024-08-23
   Features:

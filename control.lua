@@ -20,8 +20,12 @@ script.on_event(defines.events.on_lua_shortcut, function(e)
         return
     end
     if e.prototype_name == "lrh_shortcut" then
-        gui.build(e.player_index)
+        gui.build(e.player_index, true)
     end
+end)
+
+script.on_event("lrh_shortcut", function(e)
+    gui.build(e.player_index, true)
 end)
 
 script.on_event(defines.events.on_gui_click, function(e)
@@ -40,6 +44,13 @@ script.on_event(defines.events.on_gui_click, function(e)
         player.print("Sorry, this functionality is not yet implemented")
     end
 
+end)
+
+script.on_event(defines.events.on_gui_opened, function(e)
+    local player = game.get_player(e.player_index)
+    if e.gui_type == defines.gui_type.controller then
+        gui.build(e.player_index)
+    end
 end)
 
 -- script.on_event(defines.events.on_gui_opened, function(e)
