@@ -14,12 +14,25 @@ Features:
     -   `Shift+Click` an item with no request sets a request at 0
 -   `Right click` an item to immediately remove the request
 
-Known issues:
+# Demo
 
--   Only one specific request amount can be set
+![demo](https://i.imgur.com/bJrUoM7.mp4)
 
-Roadmap:
+---
 
--   Add option to set min/max request separately
+# Known issues
+
+-   Hovering over the request number on an icon doesn't make the button glow (won't fix, modding limitation)
+-   When hovering from/to the request number the tooltip briefly disappears (won't fix, midding limitation)
+
+# Roadmap
+
 -   Add checkbox "enable personal logistic" as per main character window
 -   Add expand/collapse button per group
+-   Auto-size the height of the GUI when attached to the crafting screen, if possible
+
+# Collaborations welcome
+
+-   Start a discussion with your ideas
+-   Open a pull request on Github
+-   Report issues/bugs under discussions

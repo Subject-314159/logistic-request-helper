@@ -68,16 +68,11 @@ local parse = function(number)
 end
 
 local get_request_parsed = function(requests, name)
-    -- local min = ""
-    -- local max = ""
     local min, max
     if requests[name] then
         min = requests[name].min
         max = requests[name].max
-
-        -- TODO: Change to prefix & infity
     end
-
     return parse(min), parse(max)
 end
 
@@ -118,45 +113,57 @@ local gui = {}
 gui.on_button_clicked = function(player, button, shift, control, alt, right)
     local btn = button
     local itm = game.item_prototypes[btn.tags.name]
-    local min, max
 
     -- Get current count
     local requests = get_requests(player)
-    local ireq = requests[btn.tags.name]
-
-    -- Get slot index
-    local i = get_empty_request_slot(player)
-
-    -- Update if there is a request
-    if ireq then
-        min = ireq.min
-        max = ireq.max
-        i = ireq.index
-    end
+    local ireq = requests[btn.tags.name] or {
+        min = 0,
+        max = 0,
+        index = get_empty_request_slot(player)
+    }
+    local min = ireq.min
+    local max = ireq.max
+    local i = ireq.index
 
     -- Add or subtract amount
     if right then
         -- Right mouse button to clear immediately, disregard any other controls
         max = -1
-    elseif shift then
-        if max then
-            if max == 0 then
-                max = -1
-            else
-                max = math.max(max - itm.stack_size, 0)
-                min = math.max(min - itm.stack_size, 0)
-            end
-        else
-            min = 0
-            max = 0
-        end
     else
-        -- TODO: control/alt click to increase/decrease min/max only
-        min = (min or 0) + itm.stack_size
-        max = (max or 0) + itm.stack_size
+        if shift and requests[btn.tags.name] and max == 0 then
+            -- The request amount was already 0 so we need to clear it later
+            max = -1
+        else
+            -- Get amount to add or subtract
+            local add = itm.stack_size
+            if shift then
+                add = add * -1
+            end
+
+            -- Add or subtract from min/max
+            if control or (not control and not alt) then
+                max = max + add
+            end
+            if alt or (not control and not alt) then
+                min = min + add
+            end
+
+            -- Correct if min/max/delta is negative
+            if min > max then
+                if shift then
+                    -- If we subtracted from min then min would never be >max so we set min to max
+                    min = max
+                else
+                    -- If we added to min then max would never be <min so we set max to min
+                    max = min
+                end
+            end
+            min = math.max(min, 0)
+            max = math.max(max, 0)
+        end
     end
 
-    -- Set new logistic request amount
+    -- Set or clear new logistic request amount
     if max == -1 then
         player.clear_personal_logistic_slot(i)
     else
@@ -170,47 +177,7 @@ gui.on_button_clicked = function(player, button, shift, control, alt, right)
 end
 
 ----------------------------------------------------------------------------------------------------
--- Update
-----------------------------------------------------------------------------------------------------
-
-local update_gui = function(player, gui)
-
-    -- Check if the player has logistic request enabled
-    if not player.force.character_logistic_requests then
-        return
-    end
-    -- Remove info label if still present
-    if gui.label_logistics_not_available then
-        gui.label_logistics_not_available.destroy()
-    end
-
-    -- Get request and group info
-    local requests = get_requests(player)
-    local groups = get_groups()
-
-    -- Loop over frame elements and update info
-    for group, subgroups in pairs(groups) do
-        for subgroup, items in pairs(subgroups) do
-            for item, prop in pairs(items) do
-                local flow = gui.scroll[group].content_frame[subgroup][prop]
-                local min, max = get_request_parsed(requests, prop)
-                if min == max then
-                    flow.lrh_min.caption = ""
-                else
-                    flow.lrh_min.caption = min
-                end
-                flow.lrh_max.caption = max
-                if max and max ~= "" then
-                    flow.lrh_btn.toggled = true
-                else
-                    flow.lrh_btn.toggled = false
-                end
-            end
-        end
-    end
-end
-----------------------------------------------------------------------------------------------------
--- Build/destroy
+-- Build
 ----------------------------------------------------------------------------------------------------
 
 local build = function(player, gui)
@@ -257,6 +224,7 @@ local build = function(player, gui)
             name = "group_header",
             direction = "horizontal"
         }
+        hdr.style.vertical_align = "center"
         -- TODO: Implement functionality
         -- hdr.add {
         --     type = "sprite-button",
@@ -295,6 +263,8 @@ local build = function(player, gui)
                 local lbl = {
                     name = name
                 }
+                local itm = game.item_prototypes[name]
+                local tooltip = {"lrh.tooltip", itm.localised_name, itm.stack_size}
 
                 -- Add outer flow
                 local bfl = sg_tbl.add {
@@ -311,8 +281,12 @@ local build = function(player, gui)
                     type = "sprite-button",
                     name = "lrh_btn",
                     sprite = "item." .. name,
-                    tags = lbl
-                    -- number = max
+                    tags = lbl,
+                    tooltip = tooltip
+                    -- elem_tooltip = {
+                    --     type = "item",
+                    --     name = name
+                    -- }
                 })
                 if max then
                     btn.toggled = true
@@ -323,6 +297,7 @@ local build = function(player, gui)
                     type = "label",
                     name = "lrh_min",
                     tags = lbl,
+                    tooltip = tooltip,
                     caption = min
                 })
                 lmin.style.top_margin = -36
@@ -336,6 +311,7 @@ local build = function(player, gui)
                     type = "label",
                     name = "lrh_max",
                     tags = lbl,
+                    tooltip = tooltip,
                     caption = max
                 })
                 lmax.style.top_margin = -12
@@ -395,7 +371,7 @@ local destroy_gui_relative = function(player)
 end
 
 ----------------------------------------------------------------------------------------------------
--- Toggle stuff
+-- Toggle
 ----------------------------------------------------------------------------------------------------
 
 local untoggle_shortcut = function(player)
@@ -508,6 +484,48 @@ gui.force_close = function(player_index)
     -- Close player GUI
     if player.opened_gui_type == defines.gui_type.controller then
         player.opened = nil
+    end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Update content
+----------------------------------------------------------------------------------------------------
+
+local update_gui = function(player, gui)
+
+    -- Check if the player has logistic request enabled
+    if not player.force.character_logistic_requests then
+        return
+    end
+    -- Remove info label if still present and fill the content
+    if gui.label_logistics_not_available then
+        gui.label_logistics_not_available.destroy()
+        build(player, gui)
+    end
+
+    -- Get request and group info
+    local requests = get_requests(player)
+    local groups = get_groups()
+
+    -- Loop over frame elements and update info
+    for group, subgroups in pairs(groups) do
+        for subgroup, items in pairs(subgroups) do
+            for item, prop in pairs(items) do
+                local flow = gui.scroll[group].content_frame[subgroup][prop]
+                local min, max = get_request_parsed(requests, prop)
+                if min == max then
+                    flow.lrh_min.caption = ""
+                else
+                    flow.lrh_min.caption = min
+                end
+                flow.lrh_max.caption = max
+                if max and max ~= "" then
+                    flow.lrh_btn.toggled = true
+                else
+                    flow.lrh_btn.toggled = false
+                end
+            end
+        end
     end
 end
 

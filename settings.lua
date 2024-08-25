@@ -8,7 +8,7 @@ data:extend({{
     type = "string-setting",
     name = "lrh_attach-side",
     setting_type = "runtime-per-user",
-    default_value = "left",
+    default_value = "right",
     allowed_values = {"left", "right"},
     order = "a2"
 }, {

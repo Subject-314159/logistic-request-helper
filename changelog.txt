@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.1.5
+Date: 2024-08-25
+  Features:
+    - Add/subtract min/max request by control/alt clicking
+    - Added informative tooltips
+---------------------------------------------------------------------------------------------------
+Version: 0.1.4
+Date: 2024-08-25
+  Bugfixes:
+    - Prevent crash when logistics become available while GUI is open
+---------------------------------------------------------------------------------------------------
 Version: 0.1.3
 Date: 2024-08-25
   Bugfixes:
@@ -9,6 +20,7 @@ Date: 2024-08-25
   Changes:
     - Moved mod settings from global to per-player
     - Added mod settings for GUI width/height
+  Features:
     - Correctly displaying min/max request amounts
   Bugfixes:
     - Correctly showing the toggle state of the shortcut button
