@@ -1,30 +1,41 @@
+local const = require('lib.const')
+
+local function get_values(array)
+    local res = {}
+    for k, v in pairs(array) do
+        table.insert(res, v)
+    end
+    return res
+end
+
 data:extend({{
-    type = "bool-setting",
-    name = "lrh_attach-to-inventory",
+    type = "string-setting",
+    name = const.settings.window_position,
     setting_type = "runtime-per-user",
-    default_value = false,
+    default_value = const.settings.window_position_values.floating,
+    allowed_values = get_values(const.settings.window_position_values),
     order = "a1"
 }, {
     type = "string-setting",
-    name = "lrh_attach-side",
+    name = const.settings.group_by,
     setting_type = "runtime-per-user",
-    default_value = "right",
-    allowed_values = {"left", "right"},
+    default_value = const.settings.group_by_values.dropdown,
+    allowed_values = get_values(const.settings.group_by_values),
     order = "a2"
 }, {
     type = "int-setting",
-    name = "lrh_buttons-per-row",
+    name = const.settings.window_height,
     setting_type = "runtime-per-user",
-    default_value = 10,
-    minimum_value = 5,
-    maximum_value = 20,
-    order = "a3"
+    default_value = const.settings.window_height_values.default,
+    minimum_value = const.settings.window_height_values.min,
+    maximum_value = const.settings.window_height_values.max,
+    order = "a4"
 }, {
     type = "int-setting",
-    name = "lrh_window-height",
+    name = const.settings.buttons_per_row,
     setting_type = "runtime-per-user",
-    default_value = 656,
-    minimum_value = 300,
-    maximum_value = 1200,
-    order = "a4"
+    default_value = const.settings.buttons_per_row_values.default,
+    minimum_value = const.settings.buttons_per_row_values.min,
+    maximum_value = const.settings.buttons_per_row_values.max,
+    order = "a3"
 }})

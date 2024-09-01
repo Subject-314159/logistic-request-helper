@@ -1,4 +1,38 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.1
+Date: 2024-08-30
+  Bugfixes:
+    - Prevent crashes when the player does not have a character (e.g. editor or god controller)
+---------------------------------------------------------------------------------------------------
+Version: 0.3.0
+Date: 2024-08-30
+  Features:
+    - Helper is available for logistic chests and spidertron
+    - Performance improvements by listening to event instead of on_tick
+---------------------------------------------------------------------------------------------------
+Version: 0.2.0
+Date: 2024-08-28
+  Features:
+    - Added expand/collapse buttons to groups
+    - Added mod setting to group by tab buttons
+  Bugfixes:
+    - Logistic requests can't go over the maximum anymore
+---------------------------------------------------------------------------------------------------
+Version: 0.1.8
+Date: 2024-08-25
+  Bugfixes:
+    - Multiple items using the same order are now displayed correctly
+---------------------------------------------------------------------------------------------------
+Version: 0.1.7
+Date: 2024-08-25
+  Changes:
+    - Updated command /lrh_debug
+---------------------------------------------------------------------------------------------------
+Version: 0.1.6
+Date: 2024-08-25
+  Changes:
+    - Added command /lrh_debug
+---------------------------------------------------------------------------------------------------
 Version: 0.1.5
 Date: 2024-08-25
   Features:

@@ -1,33 +1,25 @@
-local get_empty_request_slot = function(player)
+local const = require('lib.const')
+local util = require('lib.util')
 
-    local i = 1
-    while i < 65545 do
-        local slot = player.get_personal_logistic_slot(i)
-        if not slot.name then
-            return i
-        end
-        i = i + 1
+local get_gui = function(player)
+    local gui
+    if not util.get_player_setting_window_is_floating(player.index) then
+        -- if settings.get_player_settings(player.index)["lrh_attach-to-inventory"].value then
+        gui = player.gui.relative.lrh_gui
+    else
+        gui = player.gui.left.lrh_gui
     end
+    return gui
 end
 
-local get_requests = function(player)
-
-    local requests = {}
-    local i = 1
-    local empty_slots = 0
-    while empty_slots < 40 do
-        local slot = player.get_personal_logistic_slot(i)
-        if slot.name then
-            empty_slots = 0
-            requests[slot.name] = slot
-            requests[slot.name].index = i
-        else
-            empty_slots = empty_slots + 1
-        end
-        i = i + 1
+local get_global_player = function(player_index)
+    if not global.players then
+        global.players = {}
     end
-
-    return requests
+    if not global.players[player_index] then
+        global.players[player_index] = {}
+    end
+    return global.players[player_index]
 end
 
 local round = function(number)
@@ -67,15 +59,6 @@ local parse = function(number)
     return parsed
 end
 
-local get_request_parsed = function(requests, name)
-    local min, max
-    if requests[name] then
-        min = requests[name].min
-        max = requests[name].max
-    end
-    return parse(min), parse(max)
-end
-
 local get_groups = function()
     -- Generate group-subgroup-order array
     local groups = {}
@@ -98,83 +81,62 @@ local get_groups = function()
             local sg = g[sgrp]
 
             -- Add item + order
-            sg[order] = ip.name
+            sg[order .. "_" .. ip.name] = ip.name
         end
     end
     return groups
 end
 
-local gui = {}
+local update_group_visibility = function(gui, player_index)
 
-----------------------------------------------------------------------------------------------------
--- Button click handlers
-----------------------------------------------------------------------------------------------------
+    local groups = get_groups()
+    local gp = get_global_player(player_index)
 
-gui.on_button_clicked = function(player, button, shift, control, alt, right)
-    local btn = button
-    local itm = game.item_prototypes[btn.tags.name]
+    for group, subgroup in pairs(groups) do
+        local g_fl = gui.inner[group]
 
-    -- Get current count
-    local requests = get_requests(player)
-    local ireq = requests[btn.tags.name] or {
-        min = 0,
-        max = 0,
-        index = get_empty_request_slot(player)
-    }
-    local min = ireq.min
-    local max = ireq.max
-    local i = ireq.index
+        -- Set visibility of this group frame
+        -- if group_by == "Drop down" then
+        if util.get_player_setting_groupby_is_dropdown(player_index) then
+            -- Initiate global player expand array
+            if not gp.group_by_expand then
+                gp.group_by_expand = {}
+            end
+            local gbe = gp.group_by_expand
+            if gbe[group] == nil then
+                gbe[group] = true
+            end
 
-    -- Add or subtract amount
-    if right then
-        -- Right mouse button to clear immediately, disregard any other controls
-        max = -1
-    else
-        if shift and requests[btn.tags.name] and max == 0 then
-            -- The request amount was already 0 so we need to clear it later
-            max = -1
+            -- Set visibility according global player group by expand setting
+            g_fl.content_frame.visible = gbe[group]
+
+            -- Update sprite
+            local btn = g_fl.group_header[group]
+            if gbe[group] then
+                btn.sprite = "utility/collapse"
+                btn.hovered_sprite = "utility/collapse_dark"
+            else
+                g_fl.group_header[group].sprite = "utility/expand"
+                btn.hovered_sprite = "utility/expand_dark"
+            end
         else
-            -- Get amount to add or subtract
-            local add = itm.stack_size
-            if shift then
-                add = add * -1
+            -- Initiate group by tab setting
+            if not gp.group_by_tab then
+                gp.group_by_tab = group
             end
 
-            -- Add or subtract from min/max
-            if control or (not control and not alt) then
-                max = max + add
+            -- Set visibility according global player tab setting
+            local active = gp.group_by_tab == group
+            g_fl.visible = active
+            if gui.tab_flow and gui.tab_flow[group] then
+                gui.tab_flow[group].toggled = active
             end
-            if alt or (not control and not alt) then
-                min = min + add
-            end
-
-            -- Correct if min/max/delta is negative
-            if min > max then
-                if shift then
-                    -- If we subtracted from min then min would never be >max so we set min to max
-                    min = max
-                else
-                    -- If we added to min then max would never be <min so we set max to min
-                    max = min
-                end
-            end
-            min = math.max(min, 0)
-            max = math.max(max, 0)
         end
     end
 
-    -- Set or clear new logistic request amount
-    if max == -1 then
-        player.clear_personal_logistic_slot(i)
-    else
-        local req = {
-            name = btn.tags.name,
-            min = min,
-            max = max
-        }
-        player.set_personal_logistic_slot(i, req)
-    end
 end
+
+local gui = {}
 
 ----------------------------------------------------------------------------------------------------
 -- Build
@@ -187,30 +149,60 @@ local build = function(player, gui)
         local l = gui.add({
             type = "label",
             name = "label_logistics_not_available",
-            caption = "Logistic requests are not yet available"
+            caption = {const.gui.logistics_not_available}
         })
         gui.style.padding = 10
         return
     end
 
+    -- Get global player
+    local gp = get_global_player(player.index)
+
     -- 1. GET DATA
-    -- Get current logistic requests of player
-    local requests = get_requests(player)
     local groups = get_groups()
+    local group_by = util.get_player_groupby_setting(player.index)
+    local nr_cols = util.get_player_setting(player.index, const.settings.buttons_per_row)
 
     -- 2. BUILD CONTENT
-    -- Add a scroll pane
-    local gui_scroll = gui.add({
-        type = "scroll-pane",
-        name = "scroll",
-        direction = "vertical"
-    })
-    gui_scroll.style.padding = 10
+
+    -- inner
+    local gui_inner
+    if group_by == const.settings.group_by_values.dropdown then
+        -- Inner scroll pane
+        gui_inner = gui.add({
+            type = "scroll-pane",
+            name = "inner",
+            direction = "vertical"
+        })
+        gui_inner.style.padding = 10
+    else
+
+        -- 'tab' flow
+        local tflow = gui.add({
+            type = "flow",
+            direction = "horizontal",
+            name = "tab_flow"
+        })
+        tflow.style.horizontally_stretchable = true
+        tflow.style.bottom_margin = 15
+
+        -- Inner flow
+        gui_inner = gui.add({
+            type = "flow",
+            name = "inner",
+            direction = "vertical"
+        })
+        gui_inner.style.horizontally_stretchable = true
+    end
 
     -- Loop through data array
     for group, subgroups in pairs(groups) do
+        -- The frame that will contain all items
+        local g_fr
+
+        -- Build the group by visualization
         -- Add group container
-        local g_fl = gui_scroll.add {
+        local g_fl = gui_inner.add {
             type = "flow",
             name = group,
             direction = "vertical"
@@ -218,27 +210,40 @@ local build = function(player, gui)
         g_fl.style.horizontally_stretchable = true
         g_fl.style.bottom_padding = 10
 
-        -- Add header
-        local hdr = g_fl.add {
-            type = "flow",
-            name = "group_header",
-            direction = "horizontal"
-        }
-        hdr.style.vertical_align = "center"
-        -- TODO: Implement functionality
-        -- hdr.add {
-        --     type = "sprite-button",
-        --     name = "expand_button",
-        --     sprite = "utility/collapse",
-        --     hovered_sprite = "utility/collapse_dark",
-        --     style = "control_settings_section_button"
-        -- }
-        hdr.add {
-            type = "label",
-            caption = game.item_group_prototypes[group].localised_name
-        }
-        -- Add a frame to contain all subgroups
-        local g_fr = g_fl.add({
+        -- Add header above group frame
+        if group_by == const.settings.group_by_values.dropdown then
+            local hdr = g_fl.add {
+                type = "flow",
+                name = "group_header",
+                direction = "horizontal"
+            }
+            hdr.style.vertical_align = "center"
+            -- TODO: Implement functionality
+            hdr.add {
+                type = "sprite-button",
+                name = group,
+                tags = {
+                    subtype = "expand-button"
+                },
+                sprite = "utility/collapse",
+                hovered_sprite = "utility/collapse_dark",
+                style = "control_settings_section_button"
+            }
+            local spr = hdr.add {
+                type = "sprite",
+                sprite = "item-group." .. group,
+                resize_to_sprite = false
+            }
+            spr.style.width = 32
+            spr.style.height = 32
+            hdr.add {
+                type = "label",
+                caption = game.item_group_prototypes[group].localised_name
+            }
+        end
+
+        -- Add a frame to contain all rows/buttons
+        g_fr = g_fl.add({
             type = "frame",
             name = "content_frame",
             direction = "vertical",
@@ -246,20 +251,36 @@ local build = function(player, gui)
         })
         g_fr.style.horizontally_stretchable = true
 
+        -- Add the "tab" on top
+        local tab_btn
+        -- if group_by == "Tabs" then
+        if group_by == const.settings.group_by_values.tabs then
+            tab_btn = gui.tab_flow.add({
+                type = "sprite-button",
+                name = group,
+                sprite = "item-group." .. group,
+                tooltip = game.item_group_prototypes[group].localised_name,
+                tags = {
+                    subtype = "tab-button"
+                }
+            })
+            tab_btn.style.size = 62
+        end
+
         -- Process subgroups in group
         for subgroup, items in pairs(subgroups) do
             -- Add table for the buttons
             local sg_tbl = g_fr.add({
                 type = "table",
                 name = subgroup,
-                column_count = settings.get_player_settings(player.index)["lrh_buttons-per-row"].value
+                column_count = nr_cols
             })
 
             -- Process items in subgroup
+            local icnt = 0
             for order, name in pairs(items) do
                 -- Add item button for each item
                 -- Get min/max/name
-                local min, max = get_request_parsed(requests, name)
                 local lbl = {
                     name = name
                 }
@@ -283,14 +304,7 @@ local build = function(player, gui)
                     sprite = "item." .. name,
                     tags = lbl,
                     tooltip = tooltip
-                    -- elem_tooltip = {
-                    --     type = "item",
-                    --     name = name
-                    -- }
                 })
-                if max then
-                    btn.toggled = true
-                end
 
                 -- Add min label
                 local lmin = bfl.add({
@@ -298,7 +312,7 @@ local build = function(player, gui)
                     name = "lrh_min",
                     tags = lbl,
                     tooltip = tooltip,
-                    caption = min
+                    caption = ""
                 })
                 lmin.style.top_margin = -36
                 lmin.style.right_margin = 3
@@ -312,20 +326,36 @@ local build = function(player, gui)
                     name = "lrh_max",
                     tags = lbl,
                     tooltip = tooltip,
-                    caption = max
+                    caption = ""
                 })
                 lmax.style.top_margin = -12
                 lmax.style.right_margin = 3
                 lmax.style.horizontal_align = "right"
                 lmax.style.font = "item-count"
                 lmax.style.maximal_width = 40
+
+                icnt = icnt + 1
+            end
+
+            -- Add up to 10 column entries
+            for i = icnt, nr_cols - 1, 1 do
+
+                -- Add outer flow
+                local bfl = sg_tbl.add {
+                    type = "flow",
+                    direction = "vertical"
+                }
+                bfl.style.width = 40
             end
         end
     end
 
+    update_group_visibility(gui, player.index)
+
 end
 
 local get_default_gui_prop = function()
+    -- The default prop for both floating and anchored gui
     return {
         type = "frame",
         name = "lrh_gui",
@@ -335,10 +365,14 @@ local get_default_gui_prop = function()
 end
 
 local build_gui = function(player, prop, element)
+    -- Make the gui
     local gui = player.gui[element].add(prop)
-    gui.style.height = settings.get_player_settings(player.index)["lrh_window-height"].value
-    -- gui.style.vertically_squashable = false
+
+    -- Update the style
+    gui.style.height = util.get_player_setting(player.index, const.settings.window_height)
     gui.style.vertically_stretchable = true
+
+    -- Return the reference to the gui
     return gui
 end
 
@@ -354,13 +388,38 @@ local destroy_gui_side = function(player)
     end
 end
 
-local build_gui_relative = function(player)
-    local prop = get_default_gui_prop()
+local get_anchor = function(player, request_type)
+    -- Get the side    
+    local side
+    if util.get_player_setting_window_is_left(player.index) then
+        side = defines.relative_gui_position.left
+    elseif util.get_player_setting_window_is_right(player.index) then
+        side = defines.relative_gui_position.right
+    end
+
+    -- Set the anchor
     local anchor = {
-        gui = defines.relative_gui_type.controller_gui,
-        position = defines.relative_gui_position[settings.get_player_settings(player.index)["lrh_attach-side"].value]
+        position = side
     }
-    prop.anchor = anchor
+    -- Attach it to the correct window
+    if request_type == const.request_types.character then
+        anchor.gui = defines.relative_gui_type.controller_gui
+    elseif request_type == const.request_types.vehicle then
+        anchor.gui = defines.relative_gui_type.spider_vehicle_gui
+    elseif request_type == const.request_types.container then
+        anchor.gui = defines.relative_gui_type.container_gui
+    end
+    return anchor
+end
+
+local build_gui_relative = function(player, request_type)
+    -- Get default prop
+    local prop = get_default_gui_prop()
+
+    -- Add the anchor to the prop
+    prop.anchor = get_anchor(player, request_type)
+
+    -- Build the GUI
     return build_gui(player, prop, "relative")
 end
 
@@ -382,87 +441,54 @@ local toggle_shortcut = function(player)
     player.set_shortcut_toggled("lrh_shortcut", true)
 end
 
-gui.toggle = function(player_index, raised_by_script)
+gui.toggle_side = function(player_index)
     -- Get the player
     local player = game.get_player(player_index)
     if not player then
         return
     end
 
-    local gui
+    -- Check if the side GUI was open or not
+    if player.gui.left.lrh_gui then
+        -- Close the GUI and early exit
+        destroy_gui_side(player)
+        untoggle_shortcut(player)
+        return
+    else
+        -- Build the GUI
+        gui = build_gui_side(player)
+        toggle_shortcut(player)
+    end
 
-    -- First check if the toggle was caused by shortcut script or by opening/closing the character screen
-    if raised_by_script then
-        -- Check where the GUI should be positioned depending on global setting
-        if settings.get_player_settings(player.index)["lrh_attach-to-inventory"].value then
-            -- Destroy any remaining side GUI
-            destroy_gui_side(player)
+    -- If we did not early exit in above part we now end up with an emtpy frame, so we need to populate it
+    build(player, gui)
+end
 
-            -- Check if the character screen was open or closed
-            if player.opened_gui_type == defines.gui_type.controller then
-                -- The character screen was open, so we need to close it and untoggle the shortcut
-                player.opened = nil
-                untoggle_shortcut(player)
-                return
-            else
-                -- The character screen was closed, so we need to open it
-                player.opened = defines.gui_type.controller
-                toggle_shortcut(player)
+gui.toggle_relative = function(player_index, request_type)
+    -- Need to pass the request_type because we need to anchor our GUI to the correct windown
+    -- Get the player
+    local player = game.get_player(player_index)
+    if not player then
+        return
+    end
 
-                -- Check if our GUI is already anchored to the crafting screen
-                if player.gui.relative.lrh_gui then
-                    -- No need to do anything
-                    return
-                else
-                    -- Attach the gui to the character gui
-                    gui = build_gui_relative(player)
-                end
-            end
+    if player.opened or player.opened_gui_type == defines.gui_type.controller then
+        -- Toggle the shortcut
+        toggle_shortcut(player)
+
+        -- Check if our GUI is already built
+        if player.gui.relative and player.gui.relative.lrh_gui then
+            -- We need to re-anchor it
+            player.gui.relative.lrh_gui.anchor = get_anchor(player, request_type)
+            return
         else
-            -- Destroy any remaining anchored GUI
-            destroy_gui_relative(player)
-
-            -- Check if the side GUI was open or not
-            if player.gui.left.lrh_gui then
-                -- Close the GUI and early exit
-                destroy_gui_side(player)
-                untoggle_shortcut(player)
-                return
-            else
-                -- Build the GUI
-                gui = build_gui_side(player)
-                toggle_shortcut(player)
-            end
+            -- Attach the gui to the character screen for further processing and toggle the shortcut
+            gui = build_gui_relative(player, request_type)
         end
     else
-        -- Check where the GUI should be positioned depending on global setting
-        if settings.get_player_settings(player.index)["lrh_attach-to-inventory"].value then
-            -- Destroy any remaining side GUI
-            destroy_gui_side(player)
-
-            -- The trigger was caused by opening/closing the character crafting screen
-            if player.opened_gui_type == defines.gui_type.controller then
-                -- The screen was just opened
-                -- Check if our GUI is already anchored
-                if player.gui.relative.lrh_gui then
-                    -- No need to do anything, only toggle the shortcut
-                    toggle_shortcut(player)
-                    return
-                else
-                    -- Attach the gui to the character screen for further processing and toggle the shortcut
-                    gui = build_gui_relative(player)
-                    toggle_shortcut(player)
-                end
-            else
-                -- The GUI was closed, we only need to untoggle the shortcut
-                untoggle_shortcut(player)
-                return
-            end
-        else
-            -- Destroy any remaining anchored GUI
-            destroy_gui_relative(player)
-            return
-        end
+        -- The GUI was closed, we only need to untoggle the shortcut
+        untoggle_shortcut(player)
+        return
     end
 
     -- If we did not early exit in above part we now end up with an emtpy frame, so we need to populate it
@@ -491,68 +517,225 @@ end
 -- Update content
 ----------------------------------------------------------------------------------------------------
 
-local update_gui = function(player, gui)
+local update_flow_labels = function(flow, request)
+    -- Get min/max
+    local min
+    local max
+    if request then
+        if request.count then
+            max = request.count
+        else
+            min = request.min
+            max = request.max
+        end
+        if min == max then
+            min = nil
+        end
+    end
 
-    -- Check if the player has logistic request enabled
-    if not player.force.character_logistic_requests then
+    -- Update button toggled
+    local toggled = (max and max ~= "") or false
+
+    -- Find and update child min/max labels
+    for _, prop in pairs(flow.children) do
+        if prop.name == "lrh_btn" then
+            prop.toggled = toggled
+        end
+        if prop.name == "lrh_min" then
+            prop.caption = parse(min)
+        end
+        if prop.name == "lrh_max" then
+            prop.caption = parse(max)
+        end
+    end
+end
+
+gui.reset_indicators = function(player_index, requests, request_type)
+    -- Get the player
+    local player = game.get_player(player_index)
+    if not player then
         return
     end
-    -- Remove info label if still present and fill the content
+
+    -- Get the player's gui
+    local gui = get_gui(player)
+    if not gui or not gui.inner then
+        return
+    end
+
+    -- Update the frame title
+    if request_type == const.request_types.character then
+        gui.caption = {const.gui.window_title.default}
+    elseif request_type == const.request_types.vehicle then
+        gui.caption = {const.gui.window_title.vehicle}
+    elseif request_type == const.request_types.container then
+        gui.caption = {const.gui.window_title.container}
+    end
+
+    -- Loop through all elements and set all labels to blank
+    for _, group in pairs(gui.inner.children) do
+        for _, subgroup in pairs(group.content_frame.children) do
+            for _, item in pairs(subgroup.children) do
+                local itm = item.name
+                local request
+                if requests then
+                    request = requests[itm]
+                end
+                update_flow_labels(item, request)
+            end
+        end
+    end
+end
+
+gui.set_indicator = function(player_index, request)
+    if not request.item then
+        return
+    end
+
+    -- Get player
+    local player = game.get_player(player_index)
+    if not player then
+        return
+    end
+
+    -- Get GUI
+    local gui = get_gui(player)
+    if not gui then
+        return
+    end
+
+    -- Get prototype & props
+    local prot = game.item_prototypes[request.item]
+    if not prot then
+        return
+    end
+    local gr = prot.group or const.request.no_group
+    local sgr = prot.subgroup or const.request.no_subgroup
+    local ord = prot.order or const.request.no_order
+
+    -- Get gui flow
+    local fl = gui.inner[gr].content_frame[sgr][request.item]
+    update_flow_labels(fl, request)
+end
+
+gui.on_tab_expand_button_click = function(button, player)
+    -- Get variables
+    local gui = get_gui(player)
+    local gp = get_global_player(player.index)
+    local group = button.name
+
+    -- Update global player
+    if util.get_player_setting_groupby_is_dropdown(player.index) then
+        -- Initiate global player expand array
+        if not gp.group_by_expand then
+            gp.group_by_expand = {}
+        end
+        local gbe = gp.group_by_expand
+        -- Check if group by expand exists
+        if gbe[group] ~= nil then
+            gbe[group] = not gbe[group]
+        else
+            -- Collapse the content (because it should be open by default)
+            gbe[group] = false
+        end
+    else
+        -- Update group by tab setting
+        gp.group_by_tab = button.name
+    end
+    update_group_visibility(gui, player.index)
+end
+
+gui.hide_warning_label = function(player_index)
+    local player = game.get_player(player_index)
+    if not player then
+        return
+    end
+    local gui = get_gui(player)
+    if not gui then
+        return
+    end
     if gui.label_logistics_not_available then
         gui.label_logistics_not_available.destroy()
         build(player, gui)
     end
-
-    -- Get request and group info
-    local requests = get_requests(player)
-    local groups = get_groups()
-
-    -- Loop over frame elements and update info
-    for group, subgroups in pairs(groups) do
-        for subgroup, items in pairs(subgroups) do
-            for item, prop in pairs(items) do
-                local flow = gui.scroll[group].content_frame[subgroup][prop]
-                local min, max = get_request_parsed(requests, prop)
-                if min == max then
-                    flow.lrh_min.caption = ""
-                else
-                    flow.lrh_min.caption = min
-                end
-                flow.lrh_max.caption = max
-                if max and max ~= "" then
-                    flow.lrh_btn.toggled = true
-                else
-                    flow.lrh_btn.toggled = false
-                end
-            end
-        end
-    end
-end
-
-gui.tick_update = function()
-    for _, force in pairs(game.forces) do
-        -- Only if the force has logistics unlocked
-        if force.character_logistic_requests then
-            -- Loop through players
-            for _, player in pairs(force.players) do
-                -- Get GUI based on their settings
-                local gui
-                if settings.get_player_settings(player.index)["lrh_attach-to-inventory"].value then
-                    gui = player.gui.relative.lrh_gui
-                else
-                    gui = player.gui.left.lrh_gui
-                end
-
-                -- Update GUI if opened
-                if gui then
-                    update_gui(player, gui)
-                end
-            end
-        end
-    end
 end
 
 gui.init = function()
+end
+
+gui.toggle_debug_window = function(player, open)
+
+    if player.gui.screen.lrh_debug then
+        player.gui.screen.lrh_debug.destroy()
+    end
+
+    if not open then
+        return
+    end
+
+    -- Make GUI
+    local gui = player.gui.screen.add {
+        type = "frame",
+        name = "lrh_debug",
+        caption = "Logistic Request Helper - Debug",
+        direction = "vertical"
+    }
+    gui.style.horizontally_stretchable = true
+    gui.style.vertically_stretchable = true
+    gui.auto_center = true
+
+    -- Make array
+    local items = {}
+    for _, ip in pairs(game.item_prototypes) do
+        items[ip.name] = {
+            group = ip.group.name or "n/a",
+            subgroup = ip.subgroup.name or "n/a",
+            order = ip.order or "n/a",
+            flags = ip.flags or "n/a",
+            type = ip.type or "n/a",
+            stack_size = ip.stack_size or "n/a",
+            valid = ip.valid or "n/a",
+            has_flag_hidden = ip.has_flag("hidden")
+        }
+    end
+
+    local entities = {}
+    for _, ep in pairs(game.entity_prototypes) do
+        entities[ep.name] = {
+            flags = ep.flags or "n/a",
+            placed_by = ep.items_to_place_this or "n/a",
+            valid = ep.valid or "n/a"
+        }
+    end
+
+    local requests = {}
+    for i = 1, 65000, 1 do
+        local slot = player.get_personal_logistic_slot(i)
+        if slot.name then
+            requests[i] = slot
+        end
+        i = i + 1
+    end
+    local data = {
+        item_prototypes = items,
+        entity_prototypes = entities,
+        requests = requests,
+        mods = game.active_mods
+    }
+    local txt = gui.add {
+        type = "text-box",
+        text = serpent.block(data)
+    }
+    txt.style.width = 600
+    txt.style.height = 500
+
+    -- Close button
+    gui.add {
+        type = "button",
+        name = "lrh_close_debug",
+        caption = "Close"
+    }
+    player.opened = gui
 end
 
 return gui

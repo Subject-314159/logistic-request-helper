@@ -27,9 +27,11 @@ Features:
 
 # Roadmap
 
--   Add checkbox "enable personal logistic" as per main character window
--   Add expand/collapse button per group
+-   Internal optimization: Refactor code & act on on_entity_logistic_slot_changed instead of updating on_tick, where possible
+-   Add GUI to logistic chests & vehicles
+-   Add checkbox "enable personal logistic" as per main character and vehicle window
 -   Auto-size the height of the GUI when attached to the crafting screen, if possible
+-   Make GUI width more consistend when collapsing all groups
 
 # Collaborations welcome
 
