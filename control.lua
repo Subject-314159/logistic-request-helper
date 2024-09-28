@@ -249,7 +249,11 @@ end)
 local function process_slot_change(e, player)
     -- Get the request type and target
     local player_index = player.index
-    local request_type = get_request_type_by_gui(player_index) or const.request_types.character
+    local request_type = get_request_type_by_gui(player_index)
+    if not request_type then
+        -- It looks like we don't have a GUI opened, no need to continue
+        return
+    end
     local target
     if request_type == const.request_types.character then
         target = player
@@ -278,7 +282,9 @@ script.on_event(defines.events.on_entity_logistic_slot_changed, function(e)
         end
     else
         local player = e.entity.player
-        process_slot_change(e, player)
+        if player then
+            process_slot_change(e, player)
+        end
     end
 
 end)

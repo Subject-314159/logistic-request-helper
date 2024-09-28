@@ -406,6 +406,11 @@ local get_anchor = function(player, request_type)
         anchor.gui = defines.relative_gui_type.controller_gui
     elseif request_type == const.request_types.vehicle then
         anchor.gui = defines.relative_gui_type.spider_vehicle_gui
+        -- Mod compatibility
+        -- Spidertron patrols adds a GUI to the right, so we attach it to the left instead
+        if game.active_mods["SpidertronPatrols"] then
+            anchor.position = defines.relative_gui_position.left
+        end
     elseif request_type == const.request_types.container then
         anchor.gui = defines.relative_gui_type.container_gui
     end

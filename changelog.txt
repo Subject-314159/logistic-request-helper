@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.3.4
+Date: 2024-09-28
+  Bugfixes:
+    - Prevent crash when trying to update GUI after any logistic slot change when no or wrong GUI is open
+---------------------------------------------------------------------------------------------------
+Version: 0.3.3
+Date: 2024-09-01
+  Bugfixes:
+    - Force display our GUI on the left when using Spidertron Patrols
+---------------------------------------------------------------------------------------------------
+Version: 0.3.2
+Date: 2024-09-01
+  Bugfixes:
+    - Prevent crash when using mods that set logistic requests before there is a player (e.g. Even Distribution)
+---------------------------------------------------------------------------------------------------
 Version: 0.3.1
 Date: 2024-08-30
   Bugfixes:
