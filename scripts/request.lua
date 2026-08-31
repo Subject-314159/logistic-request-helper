@@ -1,191 +1,348 @@
 local const = require("lib.const")
 local util = require("lib.util")
+local state = require("scripts.state")
+local gutil = require("scripts.gui.gutil")
 
 local request = {}
 
-local get_callback = function(type, target)
-    local callback
-    if type == const.request_types.character then
-        callback = target.get_personal_logistic_slot
-    elseif type == const.request_types.vehicle then
-        callback = target.get_vehicle_logistic_slot
-    elseif type == const.request_types.container then
-        callback = target.get_request_slot
+request.set_safe = function(section, slot, filter)
+    -- if not section.is_manual then
+    --     return "Unable to set filters when group is not manual"
+    -- end
+
+    -- Try to set the slot
+    local success, result = pcall(function()
+        section.set_slot(slot, filter)
+    end)
+    if not success or result then
+        return result
     end
-    return callback
+    local new = section.get_slot(slot)
+    if (not new or not new.value) and filter and filter.value then
+        return "Filter conflicts with an existing request"
+    end
 end
 
-local get_empty_request_slot = function(request_type, target)
-    local max
-    if request_type == const.request_types.container then
-        max = const.max_slots.container
-    else
-        max = const.max_slots.logistics
+local get_filter_slot = function(player, section, signal)
+    if not section or not section.filters_count or section.filters_count == 0 then
+        return nil, 1
     end
 
-    local i = 1
-    while i < max do
-        local slot
-        if request_type == const.request_types.character then
-            slot = target.get_personal_logistic_slot(i)
-        elseif request_type == const.request_types.vehicle then
-            slot = target.get_vehicle_logistic_slot(i)
-        elseif request_type == const.request_types.container then
-            slot = target.get_request_slot(i)
+    -- Get the slot for this signal
+    local curslot = 1
+    local firstempty
+    local numslots = 0
+    local filter
+    local q = state.get_player_quality(player)
+    local com = state.get_player_comparator(player)
+    local c
+    if com > 1 then
+        c = const.comparators[com]
+    end
+
+    while true do
+        -- Check if the current slot is our signal
+        filter = section.get_slot(curslot)
+        if filter and filter.value and filter.value.name == signal and filter.value.comparator == c and
+            filter.value.quality == q then
+            -- We found our slot so we can exit the loop
+            break
         end
-        if not slot or not slot.name then
-            return i
+        -- Remember the first emtpy slot
+        if (not filter or not filter.value) and not firstempty then
+            firstempty = curslot
         end
-        i = i + 1
-    end
-end
 
-local get_requests = function(callback, max)
-    if not max then
-        max = const.max_slots.logistics
-    end
+        -- Prepare for next slot
+        curslot = curslot + 1
 
-    local requests = {}
-    local i = 1
-    local empty_slots = 0
-    while empty_slots < const.max_slots.empty and i <= max do
-        local slot = callback(i)
-        if slot and slot.name then
-            empty_slots = 0
-            requests[slot.name] = slot
-            requests[slot.name].index = i
-        else
-            empty_slots = empty_slots + 1
+        -- Check if we had all filters
+        numslots = numslots + 1
+        if numslots == section.filters_count then
+            -- We processed all filters so there is nothing more to come
+            -- We need to get an empty slot, so revert to the first next empty one
+            if firstempty then
+                curslot = firstempty
+            end
+            filter = nil
+            break
         end
-        i = i + 1
+
+        -- Emergency handbrake
+        if curslot > 1000 then
+            game.print("[LRH] Warning: Too many filters")
+            filter = nil
+            break
+        end
     end
 
-    return requests
+    return filter, curslot
 end
 
-request.get_index = function(index, type, target)
-    local callback = get_callback(type, target)
-    return callback(index)
-end
+local make_filter_modify = function(player, filter, signal, button, control, shift, alt)
+    -- Get variables
+    local eq = control == shift
+    local left = button == defines.mouse_button_type.left
+    local right = button == defines.mouse_button_type.right
 
-request.get_all = function(type, target)
-    local callback = get_callback(type, target)
-    return get_requests(callback)
-end
-
-------------------------------------------------------------------------------------------------
--- Button click handlers
-----------------------------------------------------------------------------------------------------
-
-request.on_button_clicked = function(player, button, request_type, shift, control, alt, right)
-    local btn = button
-    local itm = game.item_prototypes[btn.tags.name]
-
-    -- Get current count
-    -- local requests = get_requests(player)
-    local target
-    -- Correct request type for closed window
-    request_type = request_type or const.request_types.character
-    if request_type == const.request_types.character then
-        target = player
-    else
-        target = player.opened
+    -- Get stack size
+    local action = state.get_player_action(player)
+    local stack = prototypes.item[signal].stack_size
+    if action == const.gui.actions.half_stack then
+        stack = math.floor(stack / 2)
+    elseif action == const.gui.actions.rocket_load then
+        stack = util.get_rocket_capacity(signal)
     end
-    local requests = request.get_all(request_type, target)
-    local ireq = requests[btn.tags.name] or {
-        min = 0,
-        max = 0,
-        index = get_empty_request_slot(request_type, target)
-    }
-    local min = ireq.min or ireq.count
-    local max = ireq.max or ireq.count
-    local i = ireq.index
-
-    -- Add or subtract amount
     if right then
-        -- Right mouse button to clear immediately, disregard any other controls
-        max = -1
+        stack = stack * -1
+    end
+
+    -- Update filter
+    if alt then
+        if left then
+            -- Set max to infinite
+            filter.max = nil
+            if not filter.min then
+                filter.min = stack
+            end
+        elseif right then
+            filter = {}
+        end
     else
-        if shift and requests[btn.tags.name] and max == 0 then
-            -- The request amount was already 0 so we need to clear it later
-            max = -1
-        else
-            -- Get amount to add or subtract
-            local add = itm.stack_size
-            if shift then
-                add = add * -1
+        -- Process min
+        if eq or control then
+            -- Ensure min
+            if not filter.min then
+                -- There is no request yet for this item, initiate both min and max
+                filter.min = 0
+                filter.max = filter.max or 0
             end
+            -- Increase/decrease min by 1 stack
+            filter.min = filter.min + stack
+        end
 
-            -- Add or subtract from min/max
-            if request_type == const.request_types.container then
-                -- Chests only have one request amount, set both min/max
-                min = min + add
-                max = max + add
-            else
-                if control or (not control and not alt) then
-                    max = max + add
-                end
-                if alt or (not control and not alt) then
-                    min = min + add
-                end
+        -- Process max
+        if eq or shift then
+            if not filter.min then
+                filter.min = 0
             end
-
-            -- Correct if min/max/delta is negative
-            if min > max then
-                if shift then
-                    -- If we subtracted from min then min would never be >max so we set min to max
-                    min = max
-                else
-                    -- If we added to min then max would never be <min so we set max to min
-                    max = min
-                end
-            end
-            min = math.min(math.max(min, 0), 4294967295)
-            max = math.min(math.max(max, 0), 4294967295)
-
-            -- Correct zero for logistic Chests
-            if request_type == const.request_types.container and max == 0 then
-                max = -1
+            if filter.max then
+                -- Increase/decrease max by 1 stack if it is not infinite
+                filter.max = filter.max + stack
+            elseif left then
+                filter.max = stack
+            elseif right then
+                -- Set max to 10 stacks
+                -- Multiply by -10 because stack is negative here
+                filter.max = -10 * stack
             end
         end
     end
+end
 
-    -- Set or clear new logistic request amount
+local make_filter_set = function(player, filter, signal)
 
-    if request_type == const.request_types.character then
-        if max == -1 then
-            player.clear_personal_logistic_slot(i)
-        else
-            local req = {
-                name = btn.tags.name,
-                min = min,
-                max = max
-            }
-            player.set_personal_logistic_slot(i, req)
-        end
-    elseif request_type == const.request_types.vehicle then
-        if max == -1 then
-            player.opened.clear_vehicle_logistic_slot(i)
-        else
-            local req = {
-                name = btn.tags.name,
-                min = min,
-                max = max
-            }
-            player.opened.set_vehicle_logistic_slot(i, req)
-        end
-    elseif request_type == const.request_types.container then
+    -- Get stack size
+    local action = state.get_player_action(player)
+    local stack = prototypes.item[signal].stack_size
 
-        if max == -1 then
-            player.opened.clear_request_slot(i)
-        else
-            local req = {
-                name = btn.tags.name,
-                count = max
+    if action == const.gui.actions.stack_0_1 then
+        filter.min = 0
+        filter.max = stack
+    elseif action == const.gui.actions.stack_1_2 then
+        filter.min = stack
+        filter.max = (2 * stack)
+    end
+end
+
+request.handle = function(player, section, signal, button, control, shift, alt)
+    -- Early exit if no mouse button pressed (god knows why we end up here)
+    if button == defines.mouse_button_type.none then
+        return
+    end
+
+    -- Get some variables to work with
+    local txt = {
+        create_at_cursor = true
+    }
+
+    -- Early exit if we did not get a section
+    if not section then
+        txt.text = "Unable to process, please select a section first"
+        player.create_local_flying_text(txt)
+        return
+    end
+
+    -- Early exit if the signal is not an item
+    if not prototypes.item[signal] then
+        txt.text = signal .. "is not an item, this action is currently unsupported"
+        player.create_local_flying_text(txt)
+        return
+    end
+
+    -- Early exit if the section is not manual
+    if not section.is_manual and not gutil.player_opened_platform(player) then
+        txt.text = "Unable to process, selected section is circuit controlled"
+        player.create_local_flying_text(txt)
+    end
+
+    -- Handles a button press
+    -- signal = item-name
+    -- First we need to get the active section
+    -- Then we need to determine the slot in which to put this request;
+    --      Iterate over the slots, keep manual counter (because there might be empty slots) until we reach filters_count
+    --      Use the index at which we stop - either we found the index for existing signal, or the first next empty slot
+    -- Next we need to determine the new filter settings based on the button combination
+    -- Last we need to try to set this filter safely, or notify user of invalid filter setting
+    local filter, curslot = get_filter_slot(player, section, signal)
+
+    -- Ensure filter
+    if not filter or not filter.value then
+        filter = {
+            value = {
+                name = signal -- Do not set yet because we need to check if this is a new one or not
             }
-            player.opened.set_request_slot(req, i)
+        }
+    end
+
+    -- Get quality
+    local q = state.get_player_quality(player)
+    local com = state.get_player_comparator(player)
+
+    -- Handle the action
+    -- Left click: Increase by 1 stack (i.e. set to 1 stack if none)
+    -- Right click: Decrease by 1 stack
+    -- No modifier: Both equally
+    -- Control: Min amount
+    -- Control + Shift: Both equally
+    -- Shift: Max amount
+    -- Alt + left click: Max to infinite (if no value exists then new min = 1 stack, ignores ctrl/shift)
+    -- Alt + right click: Clear
+    -- Right click + infinite: new max = 10 stacks (or min if new min is >10 stacks)
+    -- (Control or Control + Shift) + Left click new: Set both to 1 stack
+    -- Shift + Left click new: min = 0 stack & max = 1 stack
+    -- Shift + Left click inf.: Ignore
+    -- Right click + new = 0 stack both
+
+    if button == defines.mouse_button_type.middle then
+        -- Clear the filter
+        filter = {}
+    else
+        local action = state.get_player_action(player)
+        if util.array_has_value(
+            {const.gui.actions.default, const.gui.actions.half_stack, const.gui.actions.rocket_load}, action) then
+            make_filter_modify(player, filter, signal, button, control, shift, alt)
+        else
+            make_filter_set(player, filter, signal)
         end
     end
+
+    -- Ensure positive and max >= min
+    if filter.min and filter.min < 0 then
+        filter.min = 0
+    end
+    if filter.max and filter.max < 0 then
+        filter.max = 0
+    end
+    if filter.max and filter.max < filter.min then
+        if button == defines.mouse_button_type.left then
+            filter.max = filter.min
+        else
+            filter.min = filter.max
+        end
+    end
+
+    -- If the comparator is not = then min always needs to be 0
+    if com ~= 2 then
+        filter.min = 0
+    end
+
+    -- Set quality
+    if filter.value then
+        filter.value.quality = q
+        if com > 1 then
+            filter.value.comparator = const.comparators[com]
+        end
+    end
+
+    -- Set planet import
+    if gutil.player_opened_platform(player) then
+        local pl = state.get_player_planet(player)
+        if pl == const.gui.planet_default then
+            pl = nil
+        end
+        filter.import_from = pl
+    end
+
+    -- Set the filter
+    local res = request.set_safe(section, curslot, filter)
+    if res then
+        txt.text = res
+        player.create_local_flying_text(txt)
+    end
+end
+
+request.set_planet = function(player, section)
+    if not player or not section or not gutil.player_opened_platform(player) then
+        return
+    end
+    local pl = state.get_player_planet(player)
+    for i, f in ipairs(section.filters) do
+        if pl == const.gui.planet_default then
+            f.import_from = prototypes[f.value.name].default_import_location.name
+        else
+            f.import_from = pl
+        end
+        request.set_safe(section, i, f)
+    end
+end
+
+local get_single_filter = function(player, section, item)
+    local fltr
+    local cnt = 0
+    local slot
+    for i, f in ipairs(section.filters) do
+        if f.value and f.value.name == item then
+            fltr = f
+            slot = i
+            cnt = cnt + 1
+        end
+    end
+    if cnt == 1 then
+        return slot, fltr
+    end
+end
+local update_quality = function(player, section, item, increase)
+    if not section or not item then
+        return
+    end
+    local slot, filter = get_single_filter(player, section, item)
+    if not filter then
+        local txt = {
+            create_at_cursor = true,
+            text = "Only available when there is exactly one existing requests"
+        }
+        player.create_local_flying_text(txt)
+        return
+    end
+    local quals = state.get_all_quality()
+    local cur = filter.value.quality or state.get_base_quality()
+    if increase then
+        if quals[cur] and quals[cur].next then
+            filter.value.quality = quals[cur].next
+        end
+    else
+        if quals[cur] and quals[cur].previous then
+            filter.value.quality = quals[cur].previous
+        end
+    end
+    request.set_safe(section, slot, filter)
+end
+request.increase_quality = function(player, section, item)
+    update_quality(player, section, item, true)
+end
+request.decrease_quality = function(player, section, item)
+    update_quality(player, section, item, false)
 end
 
 return request

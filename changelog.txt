@@ -1,88 +1,112 @@
 ---------------------------------------------------------------------------------------------------
-Version: 0.3.4
-Date: 2024-09-28
-  Bugfixes:
-    - Prevent crash when trying to update GUI after any logistic slot change when no or wrong GUI is open
----------------------------------------------------------------------------------------------------
-Version: 0.3.3
-Date: 2024-09-01
-  Bugfixes:
-    - Force display our GUI on the left when using Spidertron Patrols
----------------------------------------------------------------------------------------------------
-Version: 0.3.2
-Date: 2024-09-01
-  Bugfixes:
-    - Prevent crash when using mods that set logistic requests before there is a player (e.g. Even Distribution)
----------------------------------------------------------------------------------------------------
-Version: 0.3.1
-Date: 2024-08-30
-  Bugfixes:
-    - Prevent crashes when the player does not have a character (e.g. editor or god controller)
----------------------------------------------------------------------------------------------------
-Version: 0.3.0
-Date: 2024-08-30
-  Features:
-    - Helper is available for logistic chests and spidertron
-    - Performance improvements by listening to event instead of on_tick
----------------------------------------------------------------------------------------------------
-Version: 0.2.0
-Date: 2024-08-28
-  Features:
-    - Added expand/collapse buttons to groups
-    - Added mod setting to group by tab buttons
-  Bugfixes:
-    - Logistic requests can't go over the maximum anymore
----------------------------------------------------------------------------------------------------
-Version: 0.1.8
-Date: 2024-08-25
-  Bugfixes:
-    - Multiple items using the same order are now displayed correctly
----------------------------------------------------------------------------------------------------
-Version: 0.1.7
-Date: 2024-08-25
+Version: 1.1.0
+Date: ????
   Changes:
-    - Updated command /lrh_debug
+    - Update to Factorio 2.1
 ---------------------------------------------------------------------------------------------------
-Version: 0.1.6
-Date: 2024-08-25
+Version: 1.0.16
+Date: 2026-06-23
+  Bugfixes:
+    - Removed unnecessary game.print (yes, again)
+---------------------------------------------------------------------------------------------------
+Version: 1.0.15
+Date: 2026-06-17
+  Bugfixes:
+    - Prevent crashes when GUI is minimized
+---------------------------------------------------------------------------------------------------
+Version: 1.0.14
+Date: 2026-06-16
+  Features:
+    - Added minimize/maximize button
+  Bugfixes:
+    - Prevent crash
+---------------------------------------------------------------------------------------------------
+Version: 1.0.13
+Date: 2026-06-13
+  Bugfixes:
+    - Prevent error when logistic groups have non-item signals
+---------------------------------------------------------------------------------------------------
+Version: 1.0.12
+Date: 2026-06-13
+  Bugfixes:
+    - Fixed the width of the groups scroll box
+---------------------------------------------------------------------------------------------------
+Version: 1.0.11
+Date: 2026-06-13
+  Features:
+    - Added rocket capacity to the tooltip if it is different from the stack size
   Changes:
-    - Added command /lrh_debug
+    - Updated the existing requests tab to include all requests from all groups including requests that have just been removed
+  Bugfixes:
+    - Prevent error when trying to create tooltip for a nill item
 ---------------------------------------------------------------------------------------------------
-Version: 0.1.5
-Date: 2024-08-25
+Version: 1.0.10
+Date: 2026-06-12
+  Optimizations:
+    - PEBKAC proofed the code
   Features:
-    - Add/subtract min/max request by control/alt clicking
-    - Added informative tooltips
----------------------------------------------------------------------------------------------------
-Version: 0.1.4
-Date: 2024-08-25
-  Bugfixes:
-    - Prevent crash when logistics become available while GUI is open
----------------------------------------------------------------------------------------------------
-Version: 0.1.3
-Date: 2024-08-25
-  Bugfixes:
-    - Force close GUI on version change to prevent errors with previous GUI lay-outs
----------------------------------------------------------------------------------------------------
-Version: 0.1.2
-Date: 2024-08-25
+    - Added option to increase/decrease request by 1 rocket load
+    - Added tab for existing requests
   Changes:
-    - Moved mod settings from global to per-player
-    - Added mod settings for GUI width/height
-  Features:
-    - Correctly displaying min/max request amounts
+    - Removed buttons for "only in cursor" item
   Bugfixes:
-    - Correctly showing the toggle state of the shortcut button
-    - More robust toggle handling
-    - Force close GUI on mod setting change to prevent GUIs not being updated
+    - Prevent obscure error when trying to add a subgroup that already exists
+    - Prevent obscure error when trying to open a rocket silo
 ---------------------------------------------------------------------------------------------------
-Version: 0.1.1
-Date: 2024-08-24
+Version: 1.0.9
+Date: 2026-06-10
   Features:
-    - Added shortcuts ALT+L and SHIFT+E
-    - Added mod setting to attach GUI to the character crafting screen instead
+    - Added option to set click action
+  Changes:
+    - Added option to also use alt+scroll to change quality (via mod setting)
+  Bugfixes:
+    - Prevent random crash when changing quality
+    - Removed unneccessary game.print (again)
 ---------------------------------------------------------------------------------------------------
-Version: 0.1.0
-Date: 2024-08-23
+Version: 1.0.8
+Date: 2026-06-08
+  Bugfixes:
+    - Prevent error when opening a constant combinator which has non-item signals
+---------------------------------------------------------------------------------------------------
+Version: 1.0.7
+Date: 2026-06-08
   Features:
-    - Initial creation
+    - Added shortcuts Q / Shift+Q to increase/decrease quality of hovered item
+---------------------------------------------------------------------------------------------------
+Version: 1.0.6
+Date: 2026-06-08
+  Features:
+    - Implemented option to set import location on space platforms
+    - Added option to mass update import location for all requests in a group
+  Bugfixes:
+    - Group listbox wouldn't change when an entity is circuit controlled
+---------------------------------------------------------------------------------------------------
+Version: 1.0.5
+Date: 2026-06-06
+  Bugfixes:
+    - Removed unnecessary game.print
+---------------------------------------------------------------------------------------------------
+Version: 1.0.4
+Date: 2026-06-06
+  Changes:
+    - Speed improvement for when updating logistic requests
+---------------------------------------------------------------------------------------------------
+Version: 1.0.3
+Date: 2026-06-06
+  Bugfixes:
+    - Prevent crash when opening a circuit controlled machine
+---------------------------------------------------------------------------------------------------
+Version: 1.0.2
+Date: 2026-06-05
+  Bugfixes:
+    - Prevent crash on load when GUI was previously open
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 2026-06-05
+  Bugfixes:
+    - Added thumbnail
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: 2026-06-05
+  Changes:
+    - Rebuilt from scratch for 2.0

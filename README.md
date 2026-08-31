@@ -1,40 +1,44 @@
-# Logistic request helper
+# Logistic Request Helper
 
-Adds a window (GUI) that allows you to quickly set logistic requests.
+Adds a window that allows you to quickly set logistic requests. The window automatically opens when you open an entity that supports logistic requests.
 
-The lay-out of items in the GUI resembles the crafting pane and all items are on the same location, so that you can easily find them back.
+The lay-out in the new GUI resembles the crafting pane; all items are on the same location so that you can easily find them back.
 
-Open by clicking the shortcut button or pressing either `ALT+L` or `SHIFT+E`. Mod settings available to attach it to the player crafting screen instead.
+How it works:
 
-Features:
-
--   `Click` an item to add the item's stack size to your current logistic request amount
--   `Shift+Click` an item to subtract the item's stack size from your current logistic request amount
-    -   `Shift+Click` an item with request 0 removes the request
-    -   `Shift+Click` an item with no request sets a request at 0
--   `Right click` an item to immediately remove the request
+- `Left click:` Increase by 1 stack
+- `Right click:` Decrease by 1 stack
+- `Control:` Min amount only
+- `Shift:` Max amount only
+- `Alt + left click:` Max to infinite
+- `Alt + right click:` Clear
+- `Right click` infinite: set max to 10 stacks
+- `(Control or Control + Shift) + Left click` new: Set min/max to 1 stack
+- `Shift + Left click` new: set min to 0 and max to 1 stack
+- `Right click` new = set min/max to 0 stacks
 
 # Demo
 
-![demo](https://i.imgur.com/bJrUoM7.mp4)
+![demo](https://i.imgur.com/HTbc3wb.mp4)
 
 ---
 
 # Known issues
 
--   Hovering over the request number on an icon doesn't make the button glow (won't fix, modding limitation)
--   When hovering from/to the request number the tooltip briefly disappears (won't fix, midding limitation)
+- Hovering over the request number on an icon doesn't make the button glow (won't fix, modding limitation)
+- When hovering from/to the request number the tooltip briefly disappears (won't fix, modding limitation)
 
 # Roadmap
 
--   Internal optimization: Refactor code & act on on_entity_logistic_slot_changed instead of updating on_tick, where possible
--   Add GUI to logistic chests & vehicles
--   Add checkbox "enable personal logistic" as per main character and vehicle window
--   Auto-size the height of the GUI when attached to the crafting screen, if possible
--   Make GUI width more consistend when collapsing all groups
+- Search functionality
+- Set all requests to the selected quality
+- Close/hide/minimize the GUI
+- Tab for currently existing requests (i.e. exact copy of selected group)
+- Option to hide items which are not researched yet
+- Speed improvement for games with a lot of items
+- Some visual GUI improvements
 
 # Collaborations welcome
 
--   Start a discussion with your ideas
--   Open a pull request on Github
--   Report issues/bugs under discussions
+- Start a discussion with your ideas
+- Report issues/bugs under discussions
